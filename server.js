@@ -343,16 +343,37 @@ const resolvers = {
 async function startServer() {
   const app = express();
 
-  app.use(cors({ origin: "http://localhost:4200", credentials: true }));
+  // ✅ FIXED CORS CONFIGURATION
+  const allowedOrigins = [
+    "http://localhost:4200",
+    "https://pokedex-dashboard-red.vercel.app"
+  ];
+
+  app.use(cors({
+    origin: function (origin, callback) {
+      // Allow requests with no origin (like mobile apps or curl)
+      if (!origin) return callback(null, true);
+      
+      if (allowedOrigins.indexOf(origin) !== -1) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+  }));
 
   const server = new ApolloServer({ typeDefs, resolvers });
   await server.start();
-  server.applyMiddleware({ app, path: "/graphql", cors: false });
+  server.applyMiddleware({ app, path: "/graphql" }); // Removed cors:false
 
   app.get("/health", (_, res) => res.json({ status: "OK" }));
 
   app.listen(4000, () => {
     console.log("✅ Server running on http://localhost:4000/graphql");
+    console.log("✅ Allowed CORS origins:", allowedOrigins);
   });
 }
 
