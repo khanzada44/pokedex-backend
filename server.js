@@ -2,7 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const { ApolloServer, gql } = require("apollo-server-express");
 
-const data = {
+const data ={
   trainers: [
     {
       id: 1,
@@ -248,20 +248,6 @@ const typeDefs = gql`
   }
 
   type Mutation {
-    createTeam(
-      name: String!
-      trainer_id: ID!
-      pokemon_ids: [Int]!
-      created_at: String!
-    ): Team
-
-    updateTeam(
-      id: ID!
-      pokemon_ids: [Int]!
-    ): Team
-
-    removeTeam(id: ID!): Team
-
     createBattle(
       trainer_id: ID!
       opponent_name: String!
@@ -271,6 +257,19 @@ const typeDefs = gql`
       score_trainer: Int!
       score_opponent: Int!
     ): Battle
+
+    removeBattle(id: ID!): Battle
+
+    createTeam(
+      name: String!
+      trainer_id: ID!
+      pokemon_ids: [Int]!
+      created_at: String!
+    ): Team
+
+    updateTeam(id: ID!, pokemon_ids: [Int]!): Team
+
+    removeTeam(id: ID!): Team
 
     updateTrainer(
       id: ID!
@@ -286,36 +285,10 @@ const resolvers = {
     allTrainers: () => data.trainers,
     allTeams: () => data.teams,
     allBattles: () => data.battles,
-    allBattle_logs: () => data.battle_log,
+    allBattle_logs: () => data.battle_log
   },
+
   Mutation: {
-    createTeam: (_, args) => {
-      const team = {
-        id: String(Date.now()),
-        name: args.name,
-        trainer_id: String(args.trainer_id),
-        pokemon_ids: args.pokemon_ids,
-        created_at: args.created_at,
-      };
-      data.teams.push(team);
-      return team;
-    },
-
-    updateTeam: (_, { id, pokemon_ids }) => {
-      const team = data.teams.find(t => t.id === String(id));
-      if (team) team.pokemon_ids = pokemon_ids;
-      return team ?? null;
-    },
-
-    removeTeam: (_, { id }) => {
-      const idx = data.teams.findIndex(t => t.id === String(id));
-      if (idx !== -1) {
-        const removed = data.teams[idx];
-        data.teams.splice(idx, 1);
-        return removed;
-      }
-      return null;
-    },
 
     createBattle: (_, args) => {
       const battle = {
@@ -326,54 +299,81 @@ const resolvers = {
         result: args.result,
         date: args.date,
         score_trainer: args.score_trainer,
-        score_opponent: args.score_opponent,
+        score_opponent: args.score_opponent
       };
+
       data.battles.push(battle);
       return battle;
     },
 
+    removeBattle: (_, { id }) => {
+      const idx = data.battles.findIndex(b => b.id === String(id));
+
+      if (idx !== -1) {
+        const removed = data.battles[idx];
+        data.battles.splice(idx, 1);
+        return removed;
+      }
+
+      return null;
+    },
+
+    createTeam: (_, args) => {
+      const team = {
+        id: String(Date.now()),
+        name: args.name,
+        trainer_id: String(args.trainer_id),
+        pokemon_ids: args.pokemon_ids,
+        created_at: args.created_at
+      };
+
+      data.teams.push(team);
+      return team;
+    },
+
+
+    updateTeam: (_, { id, pokemon_ids }) => {
+      const team = data.teams.find(t => t.id === String(id));
+      if (team) team.pokemon_ids = pokemon_ids;
+      return team || null;
+    },
+
+    removeTeam: (_, { id }) => {
+      const idx = data.teams.findIndex(t => t.id === String(id));
+
+      if (idx !== -1) {
+        const removed = data.teams[idx];
+        data.teams.splice(idx, 1);
+        return removed;
+      }
+
+      return null;
+    },
+
+
     updateTrainer: (_, { id, ...changes }) => {
       const trainer = data.trainers.find(t => t.id === String(id));
       if (trainer) Object.assign(trainer, changes);
-      return trainer ?? null;
-    },
-  },
+      return trainer || null;
+    }
+  }
 };
 
 async function startServer() {
   const app = express();
 
-  // ✅ FIXED CORS CONFIGURATION
-  const allowedOrigins = [
-    "http://localhost:4200",
-    "https://pokedex-dashboard-red.vercel.app"
-  ];
-
   app.use(cors({
-    origin: function (origin, callback) {
-      // Allow requests with no origin (like mobile apps or curl)
-      if (!origin) return callback(null, true);
-      
-      if (allowedOrigins.indexOf(origin) !== -1) {
-        callback(null, true);
-      } else {
-        callback(new Error('Not allowed by CORS'));
-      }
-    },
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization']
+    origin: "*",
+    credentials: true
   }));
 
   const server = new ApolloServer({ typeDefs, resolvers });
   await server.start();
-  server.applyMiddleware({ app, path: "/graphql" }); // Removed cors:false
 
-  app.get("/health", (_, res) => res.json({ status: "OK" }));
+  server.applyMiddleware({ app, path: "/graphql" });
 
   app.listen(4000, () => {
-    console.log("✅ Server running on http://localhost:4000/graphql");
-    console.log("✅ Allowed CORS origins:", allowedOrigins);
+    console.log(" Server running on http://localhost:4000/graphql");
   });
 }
 
