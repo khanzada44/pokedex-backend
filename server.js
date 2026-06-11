@@ -314,7 +314,6 @@ const resolvers = {
       return battle;
     },
 
-    // Add deleteBattle mutation (same as removeBattle)
     deleteBattle: (_, { id }) => {
       const idx = data.battles.findIndex(b => b.id === Number(id));
       if (idx !== -1) {
@@ -375,7 +374,7 @@ async function startServer() {
   const app = express();
 
   app.use(cors({
-    origin: ["http://localhost:4200", "https://your-frontend-url.vercel.app"], // Add your frontend URLs
+    origin: ["http://localhost:4200", "https://pokedex-dashboard-red.vercel.app"], // Add your frontend URLs
     credentials: true
   }));
 
