@@ -245,6 +245,9 @@ const typeDefs = gql`
     allTeams: [Team]
     allBattles: [Battle]
     allBattle_logs: [BattleLog]
+    
+    # Add aliases for frontend compatibility
+    allBattleLogs: [BattleLog]
   }
 
   type Mutation {
@@ -258,6 +261,7 @@ const typeDefs = gql`
       score_opponent: Int!
     ): Battle
 
+    deleteBattle(id: ID!): Battle
     removeBattle(id: ID!): Battle
 
     createTeam(
@@ -285,17 +289,21 @@ const resolvers = {
     allTrainers: () => data.trainers,
     allTeams: () => data.teams,
     allBattles: () => data.battles,
-    allBattle_logs: () => data.battle_log
+    allBattle_logs: () => data.battle_log,
+    // Add alias resolver
+    allBattleLogs: () => data.battle_log.map(log => ({
+      ...log,
+      battleId: log.battle_id // Add camelCase field
+    }))
   },
 
   Mutation: {
-
     createBattle: (_, args) => {
       const battle = {
-        id: String(Date.now()),
-        trainer_id: String(args.trainer_id),
+        id: Number(Date.now()),
+        trainer_id: Number(args.trainer_id),
         opponent_name: args.opponent_name,
-        team_id: String(args.team_id),
+        team_id: Number(args.team_id),
         result: args.result,
         date: args.date,
         score_trainer: args.score_trainer,
@@ -306,53 +314,57 @@ const resolvers = {
       return battle;
     },
 
-    removeBattle: (_, { id }) => {
-      const idx = data.battles.findIndex(b => b.id === String(id));
-
+    // Add deleteBattle mutation (same as removeBattle)
+    deleteBattle: (_, { id }) => {
+      const idx = data.battles.findIndex(b => b.id === Number(id));
       if (idx !== -1) {
         const removed = data.battles[idx];
         data.battles.splice(idx, 1);
         return removed;
       }
+      return null;
+    },
 
+    removeBattle: (_, { id }) => {
+      const idx = data.battles.findIndex(b => b.id === Number(id));
+      if (idx !== -1) {
+        const removed = data.battles[idx];
+        data.battles.splice(idx, 1);
+        return removed;
+      }
       return null;
     },
 
     createTeam: (_, args) => {
       const team = {
-        id: String(Date.now()),
+        id: Number(Date.now()),
         name: args.name,
-        trainer_id: String(args.trainer_id),
+        trainer_id: Number(args.trainer_id),
         pokemon_ids: args.pokemon_ids,
         created_at: args.created_at
       };
-
       data.teams.push(team);
       return team;
     },
 
-
     updateTeam: (_, { id, pokemon_ids }) => {
-      const team = data.teams.find(t => t.id === String(id));
+      const team = data.teams.find(t => t.id === Number(id));
       if (team) team.pokemon_ids = pokemon_ids;
       return team || null;
     },
 
     removeTeam: (_, { id }) => {
-      const idx = data.teams.findIndex(t => t.id === String(id));
-
+      const idx = data.teams.findIndex(t => t.id === Number(id));
       if (idx !== -1) {
         const removed = data.teams[idx];
         data.teams.splice(idx, 1);
         return removed;
       }
-
       return null;
     },
 
-
     updateTrainer: (_, { id, ...changes }) => {
-      const trainer = data.trainers.find(t => t.id === String(id));
+      const trainer = data.trainers.find(t => t.id === Number(id));
       if (trainer) Object.assign(trainer, changes);
       return trainer || null;
     }
@@ -363,17 +375,25 @@ async function startServer() {
   const app = express();
 
   app.use(cors({
-    origin: "*",
+    origin: ["http://localhost:4200", "https://your-frontend-url.vercel.app"], // Add your frontend URLs
     credentials: true
   }));
 
-  const server = new ApolloServer({ typeDefs, resolvers });
+  const server = new ApolloServer({ 
+    typeDefs, 
+    resolvers,
+    formatError: (error) => {
+      console.error('GraphQL Error:', error);
+      return error;
+    }
+  });
+  
   await server.start();
-
   server.applyMiddleware({ app, path: "/graphql" });
 
-  app.listen(4000, () => {
-    console.log(" Server running on http://localhost:4000/graphql");
+  const PORT = process.env.PORT || 4000;
+  app.listen(PORT, () => {
+    console.log(`Server running on http://localhost:${PORT}/graphql`);
   });
 }
 
